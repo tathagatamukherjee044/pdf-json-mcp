@@ -7,3 +7,5 @@ langchain-anthropic
 pypdf
 unstructured
 pydantic
+chromadb
+python-dotenv

@@ -23,7 +23,43 @@ from io import BytesIO
 import os
 from dotenv import load_dotenv
 
+# Chroma imports
+from chromadb import Client, Settings
+from chromadb.utils import embedding_functions
+import chromadb
+
 load_dotenv()
+
+# --- ChromaDB Handler Class ---
+class ChromaDBHandler:
+    def __init__(self, persist_directory: str = "chroma_db"):
+        self.persist_directory = persist_directory
+        self.client = chromadb.PersistentClient(path=persist_directory)
+        self.collection = self.client.get_or_create_collection(
+            name="invoice_templates",
+            metadata={"hnsw:space": "cosine"}
+        )
+        
+    def add_training_example(self, pdf_name: str, pdf_image_b64: str, template_json: dict):
+        """Add a training example to ChromaDB"""
+        self.collection.add(
+            documents=[json.dumps(template_json)],
+            metadatas=[{"pdf_name": pdf_name}],
+            ids=[pdf_name],
+            embeddings=[pdf_image_b64]  # Using base64 string as embedding
+        )
+    
+    def get_similar_examples(self, pdf_image_b64: str, n_results: int = 3):
+        """Get similar examples based on the PDF image"""
+        results = self.collection.query(
+            query_embeddings=[pdf_image_b64],
+            n_results=n_results
+        )
+        return results
+    
+    def load_all_examples(self):
+        """Load all examples from ChromaDB"""
+        return self.collection.get()
 
 # --- Pydantic Version Check (UNCHANGED) ---
 if pydantic.VERSION.startswith('1.'):
@@ -97,9 +133,8 @@ def pdf_page_to_image_base64(pdf_bytes: bytes, page_num: int = 0) -> str:
 def get_template_generation_chain(invoice_image_base64: str):
     llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
 
-    # Get the data directory path
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(current_dir, "data")
+    # Initialize ChromaDB handler
+    chroma_handler = ChromaDBHandler()
 
     # Initialize messages list for the prompt
     messages = [
@@ -112,6 +147,52 @@ def get_template_generation_chain(invoice_image_base64: str):
                    "\n{format_instructions}")
     ]
 
+    # Get similar examples from ChromaDB
+    similar_examples = chroma_handler.get_similar_examples(invoice_image_base64)
+    
+    if similar_examples and similar_examples['documents']:
+        for doc, metadata in zip(similar_examples['documents'], similar_examples['metadatas']):
+            template_json = json.loads(doc[0])
+            template_json_string = json.dumps(template_json, indent=2)
+            
+            # Add training example to messages
+            messages.extend([
+                HumanMessage(
+                    content=[
+                        {"type": "text", "text": "Here is a training example. First, the invoice image:"},
+                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{similar_examples['embeddings'][0]}"}},
+                        {"type": "text", "text": "And here is its corresponding template JSON:"},
+                        {"type": "text", "text": f"```json\n{template_json_string}\n```"}
+                    ]
+                )
+            ])
+
+    # Add the final user query messages
+    messages.extend([
+        HumanMessage(
+            content=[
+                {"type": "text", "text": "Now, analyze the following invoice image and generate its corresponding extraction template JSON. Ensure your output is a JSON string conforming to the structure demonstrated above and the Pydantic schema:"},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{invoice_image_base64}"}}
+            ]
+        )
+    ])
+
+    prompt = ChatPromptTemplate.from_messages(messages)
+    parser = PydanticOutputParser(pydantic_object=InvoiceTemplate)
+    chain = prompt.partial(format_instructions=parser.get_format_instructions()) | llm | parser
+    return chain
+
+# --- Main execution block (MODIFIED FOR DEBUGGING) ---
+async def main():
+    print("--- Starting Invoice Template Generation Test ---")
+
+    # Initialize ChromaDB handler
+    chroma_handler = ChromaDBHandler()
+
+    # Load training examples from data directory and store in ChromaDB
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(current_dir, "data")
+    
     # Load all training examples from the data directory
     for filename in sorted(os.listdir(data_dir)):
         if filename.endswith('.json'):
@@ -135,7 +216,6 @@ def get_template_generation_chain(invoice_image_base64: str):
             try:
                 with open(json_path, 'r', encoding='utf-8') as f:
                     template_json = json.load(f)
-                template_json_string = json.dumps(template_json, indent=2)
             except Exception as e:
                 print(f"Warning: Error loading {filename}: {e}")
                 continue
@@ -146,40 +226,17 @@ def get_template_generation_chain(invoice_image_base64: str):
                     pdf_bytes = f.read()
                 sample_image_b64 = pdf_page_to_image_base64(pdf_bytes)
                 
-                # Add training example to messages
-                messages.extend([
-                    HumanMessage(
-                        content=[
-                            {"type": "text", "text": "Here is a training example. First, the invoice image:"},
-                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{sample_image_b64}"}},
-                            {"type": "text", "text": "And here is its corresponding template JSON:"},
-                            {"type": "text", "text": f"```json\n{template_json_string}\n```"}
-                        ]
-                    )
-                ])
+                # Add to ChromaDB
+                chroma_handler.add_training_example(
+                    pdf_name=actual_pdf,
+                    pdf_image_b64=sample_image_b64,
+                    template_json=template_json
+                )
             except Exception as e:
                 print(f"Warning: Error processing {actual_pdf}: {e}")
                 continue
 
-    # Add the final user query messages
-    messages.extend([
-        HumanMessage(
-            content=[
-                {"type": "text", "text": "Now, analyze the following invoice image and generate its corresponding extraction template JSON. Ensure your output is a JSON string conforming to the structure demonstrated above and the Pydantic schema:"},
-                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{invoice_image_base64}"}}
-            ]
-        )
-    ])
-
-    prompt = ChatPromptTemplate.from_messages(messages)
-    parser = PydanticOutputParser(pydantic_object=InvoiceTemplate)
-    chain = prompt.partial(format_instructions=parser.get_format_instructions()) | llm | parser
-    return chain
-
-# --- Main execution block (MODIFIED FOR DEBUGGING) ---
-async def main():
-    print("--- Starting Invoice Template Generation Test ---")
-
+    # Process the test PDF
     pdf_bytes = None
     pdf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), TEST_PDF_FILE)
     try:
@@ -197,8 +254,6 @@ async def main():
         sys.exit(1)
 
     # Convert the first page of the PDF to a Base64 image
-
-
     invoice_image_b64 = ""
     try:
         print("Attempting to convert PDF to Base64 image...")
@@ -207,19 +262,16 @@ async def main():
         print(f"Base64 prefix (first 50 chars): {invoice_image_b64[:50]}...")
 
         # --- IMPORTANT DEBUGGING STEP ---
-        # Try to decode the Base64 string locally and verify it's a valid image.
-        # If this fails, the problem is definitely in your conversion.
         try:
             decoded_img_bytes = base64.b64decode(invoice_image_b64)
-            # Try to open the image to verify integrity
             with Image.open(io.BytesIO(decoded_img_bytes)) as img:
-                img.verify() # Checks image integrity without loading all pixels
+                img.verify()
                 print(f"Local Base64 decode and image verification successful. Image format: {img.format}, size: {img.size}")
         except Exception as e:
             print(f"Local Base64 decode/image verification FAILED! This is the source of the 'invalid base64 data' error.")
             print(f"Error during local verification: {e}")
             traceback.print_exc()
-            sys.exit(1) # Exit if local verification fails, no point sending to Claude
+            sys.exit(1)
 
     except Exception as e:
         print(f"ERROR: Failed to convert PDF to image: {e}")
