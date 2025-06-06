@@ -63,6 +63,7 @@ class InvoiceTemplate(BaseModel):
 # --- Constants for file paths (UNCHANGED) ---
 JSON_TEMPLATE_FILE = "actual.json"
 SAMPLE_PDF_FILE = "MULTI.pdf" # IMPORTANT: Replace with your actual PDF filename
+TEST_PDF_FILE = "TEST.pdf"
 
 # --- Helper function for PDF to image conversion (MODIFIED FOR ROBUSTNESS) ---
 def pdf_page_to_image_base64(pdf_bytes: bytes, page_num: int = 0) -> str:
@@ -92,94 +93,86 @@ def pdf_page_to_image_base64(pdf_bytes: bytes, page_num: int = 0) -> str:
         traceback.print_exc()
         raise
 
-# --- LangChain Chain Definition for Template Generation (UNCHANGED) ---
+# --- LangChain Chain Definition for Template Generation (MODIFIED) ---
 def get_template_generation_chain(invoice_image_base64: str):
     llm = ChatAnthropic(model="claude-3-opus-20240229", temperature=0)
 
-    sample_template_json_string = ""
+    # Get the data directory path
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    json_path = os.path.join(current_dir, JSON_TEMPLATE_FILE)
-    try:
-        with open(json_path, 'r', encoding='utf-8') as f:
-            sample_template_json_content = json.load(f)
-        sample_template_json_string = json.dumps(sample_template_json_content, indent=2)
-        print(f"Successfully loaded '{JSON_TEMPLATE_FILE}' for LLM context.")
-    except FileNotFoundError:
-        print(f"WARNING: '{JSON_TEMPLATE_FILE}' not found at '{json_path}'. "
-              "The LLM will NOT receive this example JSON for context, which may impact performance.")
-        sample_template_json_string = "No sample template JSON file found. Please ensure it's in the script's directory for better results."
-    except json.JSONDecodeError:
-        print(f"WARNING: '{JSON_TEMPLATE_FILE}' is not a valid JSON. "
-              "The LLM will NOT receive this example JSON for context, which may impact performance.")
-        sample_template_json_string = "The provided sample template JSON file is invalid. Please check its syntax."
-    except Exception as e:
-        print(f"WARNING: An unexpected error occurred while loading '{JSON_TEMPLATE_FILE}': {e}")
-        sample_template_json_string = f"Error loading sample template: {e}"
+    data_dir = os.path.join(current_dir, "data")
 
-    sample_pdf_bytes = None
-    sample_pdf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), SAMPLE_PDF_FILE)
-    try:
-        print(f"Attempting to load PDF from: {sample_pdf_path}")
-        with open(sample_pdf_path, 'rb') as f:
-            sample_pdf_bytes = f.read()
-            print(f"Successfully loaded {len(sample_pdf_bytes)} bytes from '{SAMPLE_PDF_FILE}'.")
-    except FileNotFoundError:
-        print(f"ERROR: Test PDF '{SAMPLE_PDF_FILE}' not found at '{sample_pdf_path}'. "
-            "Please ensure your test PDF is in the same directory as this script.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: An unexpected error occurred while loading '{SAMPLE_PDF_FILE}': {e}")
-        traceback.print_exc()
-        sys.exit(1)
-
-    sample_invoice_image_b64 = ""
-    try:
-        print("Attempting to convert PDF to Base64 image...")
-        sample_invoice_image_b64 = pdf_page_to_image_base64(sample_pdf_bytes)
-        print(f"Converted PDF to image. Base64 string length: {len(sample_invoice_image_b64)}")
-        print(f"Base64 prefix (first 50 chars): {sample_invoice_image_b64[:50]}...")
-
-        # --- IMPORTANT DEBUGGING STEP ---
-        # Try to decode the Base64 string locally and verify it's a valid image.
-        # If this fails, the problem is definitely in your conversion.
-        try:
-            decoded_img_bytes = base64.b64decode(sample_invoice_image_b64)
-            # Try to open the image to verify integrity
-            with Image.open(io.BytesIO(decoded_img_bytes)) as img:
-                img.verify() # Checks image integrity without loading all pixels
-                print(f"Local Base64 decode and image verification successful. Image format: {img.format}, size: {img.size}")
-        except Exception as e:
-            print(f"Local Base64 decode/image verification FAILED! This is the source of the 'invalid base64 data' error.")
-            print(f"Error during local verification: {e}")
-            traceback.print_exc()
-            sys.exit(1) # Exit if local verification fails, no point sending to Claude
-
-    except Exception as e:
-        print(f"ERROR: Failed to convert PDF to image: {e}")
-        traceback.print_exc()
-        sys.exit(1)
-
-    parser = PydanticOutputParser(pydantic_object=InvoiceTemplate)
-
-    prompt = ChatPromptTemplate.from_messages([
+    # Initialize messages list for the prompt
+    messages = [
         ("system", "You are an AI assistant specialized in creating invoice extraction templates. "
                    "Your task is to analyze a given invoice PDF (or its text/image representation) "
                    "and generate a JSON configuration template that describes how to extract specific data fields. "
                    "Focus on identifying patterns, delimiters, positions, and structural cues like headers and footers for the main invoice table. "
                    "The output must strictly conform to the provided JSON schema for the 'InvoiceTemplate'. "
                    "If you cannot determine a value, use appropriate defaults or omit optional fields. "
-                   "\n{format_instructions}"),
+                   "\n{format_instructions}")
+    ]
 
+    # Load all training examples from the data directory
+    for filename in sorted(os.listdir(data_dir)):
+        if filename.endswith('.json'):
+            # Get the corresponding PDF file (case-insensitive)
+            pdf_filename = filename.replace('.json', '.pdf')
+            pdf_path = os.path.join(data_dir, pdf_filename)
+            
+            # Find the actual PDF file (case-insensitive)
+            actual_pdf = None
+            for f in os.listdir(data_dir):
+                if f.lower() == pdf_filename.lower():
+                    actual_pdf = f
+                    break
+            
+            if actual_pdf is None:
+                print(f"Warning: No matching PDF found for {filename}")
+                continue
+
+            # Load JSON template
+            json_path = os.path.join(data_dir, filename)
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    template_json = json.load(f)
+                template_json_string = json.dumps(template_json, indent=2)
+            except Exception as e:
+                print(f"Warning: Error loading {filename}: {e}")
+                continue
+
+            # Load and convert PDF to image
+            try:
+                with open(os.path.join(data_dir, actual_pdf), 'rb') as f:
+                    pdf_bytes = f.read()
+                sample_image_b64 = pdf_page_to_image_base64(pdf_bytes)
+                
+                # Add training example to messages
+                messages.extend([
+                    HumanMessage(
+                        content=[
+                            {"type": "text", "text": "Here is a training example. First, the invoice image:"},
+                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{sample_image_b64}"}},
+                            {"type": "text", "text": "And here is its corresponding template JSON:"},
+                            {"type": "text", "text": f"```json\n{template_json_string}\n```"}
+                        ]
+                    )
+                ])
+            except Exception as e:
+                print(f"Warning: Error processing {actual_pdf}: {e}")
+                continue
+
+    # Add the final user query messages
+    messages.extend([
         HumanMessage(
             content=[
-                {"type": "text", "text": "For your reference, here is an example of the desired template JSON structure and its purpose. Analyze it to understand the required format, the meaning of each field, and how the values are inferred from an invoice layout:"},
-                {"type": "text", "text": f"```json\n{sample_template_json_string}\n```"},
                 {"type": "text", "text": "Now, analyze the following invoice image and generate its corresponding extraction template JSON. Ensure your output is a JSON string conforming to the structure demonstrated above and the Pydantic schema:"},
                 {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{invoice_image_base64}"}}
             ]
         )
     ])
 
+    prompt = ChatPromptTemplate.from_messages(messages)
+    parser = PydanticOutputParser(pydantic_object=InvoiceTemplate)
     chain = prompt.partial(format_instructions=parser.get_format_instructions()) | llm | parser
     return chain
 
@@ -188,18 +181,18 @@ async def main():
     print("--- Starting Invoice Template Generation Test ---")
 
     pdf_bytes = None
-    pdf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), SAMPLE_PDF_FILE)
+    pdf_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), TEST_PDF_FILE)
     try:
         print(f"Attempting to load PDF from: {pdf_path}")
         with open(pdf_path, 'rb') as f:
             pdf_bytes = f.read()
-        print(f"Successfully loaded {len(pdf_bytes)} bytes from '{SAMPLE_PDF_FILE}'.")
+        print(f"Successfully loaded {len(pdf_bytes)} bytes from '{TEST_PDF_FILE}'.")
     except FileNotFoundError:
-        print(f"ERROR: Test PDF '{SAMPLE_PDF_FILE}' not found at '{pdf_path}'. "
+        print(f"ERROR: Test PDF '{TEST_PDF_FILE}' not found at '{pdf_path}'. "
               "Please ensure your test PDF is in the same directory as this script.")
         sys.exit(1)
     except Exception as e:
-        print(f"ERROR: An unexpected error occurred while loading '{SAMPLE_PDF_FILE}': {e}")
+        print(f"ERROR: An unexpected error occurred while loading '{TEST_PDF_FILE}': {e}")
         traceback.print_exc()
         sys.exit(1)
 

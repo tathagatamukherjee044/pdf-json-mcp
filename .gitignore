@@ -34,12 +34,15 @@ ENV/
 .DS_Store
 
 # Project specific
-*.pdf
+# *.pdf
 !sample.pdf
 !MULTI.pdf
-*.json
+# *.json
 !actual.json
 
 # Logs
 *.log
 logs/ 
+
+# Output
+sampl-config/

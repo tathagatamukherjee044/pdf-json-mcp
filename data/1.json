@@ -1,0 +1,51 @@
+{
+    "templateNm" : "CUSTOM#2_PDF",
+    "docConfig" : [
+        {
+            "delimiter" : "",
+            "stdNm" : "docId",
+            "position" : 2,
+            "token" : "Reference"
+        },
+        {
+            "delimiter" : "",
+            "stdNm" : "docAmt",
+            "position" : -2,
+            "token" : "Net Amount"
+        }
+    ],
+    "templateConfig" : {
+        "stopWords" : "",
+        "columnLength" : 5,
+        "delimiter" : " ",
+        "invoiceLine" : 1
+    },
+    "footer" : [
+        "Total Amount INR",
+        "Note:"
+    ],
+    "header" : [
+        "Document No"
+    ],
+    "remittanceConfig" : [
+        {
+            "delimiter" : ":",
+            "format" : "dd.MM.yyyy",
+            "stdNm" : "payDate",
+            "position" : 1,
+            "token" : "Date"
+        },
+        {
+            "delimiter" : " ",
+            "stdNm" : "payAmt",
+            "position" : 1,
+            "token" : "Total Amount INR"
+        },
+        {
+            "delimiter" : ":",
+            "stdNm" : "PABankUtr",
+            "position" : 1,
+            "token" : "Payment Voucher No"
+        }
+    ]
+}

@@ -1,0 +1,68 @@
+{
+    "template": {
+      "buyerNm": "RELIANCE RETAIL LIMITED",
+      "alias": [
+        "reliance retail ltd",
+        "RELIANCE RETAIL LIMITED 712",
+        "reliance retail limited"
+      ],
+      "remittanceConfig": {
+        "pdf": [
+          {
+            "templateNm": "ALGORIQ_PDF",
+            "docConfig": [
+              {
+                "delimiter": " ",
+                "stdNm": "docId",
+                "position": 4
+              },
+              {
+                "delimiter": " ",
+                "stdNm": "docAmt",
+                "position": -1
+              }
+            ],
+            "templateConfig": {
+              "stopWords": "",
+              "columnLength": 6,
+              "delimiter": " ",
+              "invoiceLine": 1
+            },
+            "footer": [
+              "The time"
+            ],
+            "header": [
+              "Sr.No."
+            ],
+            "remittanceConfig": [
+              {
+                "delimiter": ":",
+                "format": "dd-MM-yyyy",
+                "stdNm": "payDate",
+                "position": 1,
+                "token": "Payment Post Date"
+              },
+              {
+                "delimiter": " ",
+                "stdNm": "payAmt",
+                "position": 1,
+                "token": "of INR"
+              },
+              {
+                "delimiter": ":",
+                "stdNm": "PABankUtr",
+                "position": 1,
+                "token": "Document Number"
+              }
+            ]
+          }
+        ]
+      },
+      "buyerCode": [
+        ""
+      ],
+      "sellerCode": "Grupobimbo",
+      "active": true
+    },
+    "client": "Grupobimbo"
+  }
