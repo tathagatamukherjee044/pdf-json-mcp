@@ -1,0 +1,9 @@
+anthropic
+fastmcp
+Pillow
+PyMuPDF
+langchain
+langchain-anthropic
+pypdf
+unstructured
+pydantic
