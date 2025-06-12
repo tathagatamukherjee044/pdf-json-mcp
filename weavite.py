@@ -2,13 +2,14 @@ import weaviate
 from weaviate.classes.init import Auth
 import os
 from dotenv import load_dotenv
-import requests,json
+import requests, json
 
 load_dotenv()  # Load environment variables from .env file
 
 # Best practice: store your credentials in environment variables
 weaviate_url = os.getenv("WEAVIATE_URL")
 weaviate_api_key = os.getenv("WEAVIATE_API_KEY")
+weaviate_grpc_key = os.getenv("WEAVIATE_GRPC_KEY")
 
 
 client = weaviate.connect_to_weaviate_cloud(
@@ -16,7 +17,7 @@ client = weaviate.connect_to_weaviate_cloud(
     auth_credentials=Auth.api_key(weaviate_api_key),
 )
 
-# way to inseter into DB 
+# way to inseter into DB
 
 resp = requests.get(
     "https://raw.githubusercontent.com/weaviate-tutorials/quickstart/main/data/jeopardy_tiny.json"
@@ -44,12 +45,7 @@ if failed_objects:
     print(f"First failed object: {failed_objects[0]}")
 
 
-
-
-response = questions.query.near_text(
-    query="biology",
-    limit=2
-)
+response = questions.query.near_text(query="biology", limit=2)
 
 for obj in response.objects:
     print(json.dumps(obj.properties, indent=2))

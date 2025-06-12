@@ -1,0 +1,54 @@
+{
+    "name": "VectorDBSchema",
+    "description": "Schema for a vector database",
+    "fields": [
+        {
+            "name": "id",
+            "type": "string",
+            "description": "Unique identifier for the vector"
+        },
+        {
+            "name": "pdf_embedding_vector",
+            "type": "array",
+            "items": {
+                "type": "number"
+            },
+            "description": "The vector representation of the data"
+        },
+        {
+            "name": "metadata",
+            "type": "object",
+            "description": "Additional metadata associated with the vector"
+        },
+        {
+            "name": "created_at",
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the vector was created"
+        },
+        {
+            "name": "updated_at",
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the vector was last updated",
+        },
+        {
+            "name": "source",
+            "type": "string",
+            "description": "Source of the vector data, e.g., document ID or URL"
+        },
+        {
+            "name": "tags",
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Tags associated with the vector for easier categorization"
+        },
+         {
+            "name": "rag_prompt",
+            "type": "string",
+            "description": "Rag_prompt for querying the vector database"
+        }
+    ]
+  }

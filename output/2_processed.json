@@ -1,6 +1,6 @@
 {
   "pdf_path": "data/2.pdf",
-  "json_path": "data/1.json",
+  "json_path": "data/2.json",
   "pdf_embedding": [
     -0.02556217461824417,
     -0.01586749032139778,
@@ -388,55 +388,72 @@
     0.0028236163780093193
   ],
   "json_config": {
-    "templateNm": "CUSTOM#2_PDF",
-    "docConfig": [
-      {
-        "delimiter": "",
-        "stdNm": "docId",
-        "position": 2,
-        "token": "Reference"
+    "template": {
+      "buyerNm": "RELIANCE RETAIL LIMITED",
+      "alias": [
+        "reliance retail ltd",
+        "RELIANCE RETAIL LIMITED 712",
+        "reliance retail limited"
+      ],
+      "remittanceConfig": {
+        "pdf": [
+          {
+            "templateNm": "ALGORIQ_PDF",
+            "docConfig": [
+              {
+                "delimiter": " ",
+                "stdNm": "docId",
+                "position": 4
+              },
+              {
+                "delimiter": " ",
+                "stdNm": "docAmt",
+                "position": -1
+              }
+            ],
+            "templateConfig": {
+              "stopWords": "",
+              "columnLength": 6,
+              "delimiter": " ",
+              "invoiceLine": 1
+            },
+            "footer": [
+              "The time"
+            ],
+            "header": [
+              "Sr.No."
+            ],
+            "remittanceConfig": [
+              {
+                "delimiter": ":",
+                "format": "dd-MM-yyyy",
+                "stdNm": "payDate",
+                "position": 1,
+                "token": "Payment Post Date"
+              },
+              {
+                "delimiter": " ",
+                "stdNm": "payAmt",
+                "position": 1,
+                "token": "of INR"
+              },
+              {
+                "delimiter": ":",
+                "stdNm": "PABankUtr",
+                "position": 1,
+                "token": "Document Number"
+              }
+            ]
+          }
+        ]
       },
-      {
-        "delimiter": "",
-        "stdNm": "docAmt",
-        "position": -2,
-        "token": "Net Amount"
-      }
-    ],
-    "templateConfig": {
-      "stopWords": "",
-      "columnLength": 5,
-      "delimiter": " ",
-      "invoiceLine": 1
+      "buyerCode": [
+        ""
+      ],
+      "sellerCode": "Grupobimbo",
+      "active": true
     },
-    "footer": [
-      "Total Amount INR",
-      "Note:"
-    ],
-    "header": [
-      "Document No"
-    ],
-    "remittanceConfig": [
-      {
-        "delimiter": ":",
-        "format": "dd.MM.yyyy",
-        "stdNm": "payDate",
-        "position": 1,
-        "token": "Date"
-      },
-      {
-        "delimiter": " ",
-        "stdNm": "payAmt",
-        "position": 1,
-        "token": "Total Amount INR"
-      },
-      {
-        "delimiter": ":",
-        "stdNm": "PABankUtr",
-        "position": 1,
-        "token": "Payment Voucher No"
-      }
-    ]
+    "client": "Grupobimbo"
   },
-  "vector_relation": "<think>\nOkay, let me start by understanding what the user needs here. They provided a JSON configuration and PDF content, asking for a vector relation. First, I need to parse both the config and the PDF correctly.\n\nThe JSON has sections like templateNm, docConfig, remittanceConfig, etc. The key fields mentioned are \"Reference\" at position 2 and \"Net Amount\" at position -2 in the docConfig. There's also footer info with \"Total Amount INR\", header with \"Document No\", and remittance details including payment date, amount, UTR number.\n\nLooking at the PDF content, I see terms like \"Beneficiary Code,\" which matches the \"Reference\" token from the config. The position is 2 in the docConfig, so that would be the third line of the PDF? Let me check: \n\nThe PDF lines are:\n1. Payment Advice\n2. To CANON INDIA PVT LTD\n3. From LARSEN & TOUBRO LIMITED address...\n\nWait, \"Beneficiary Code\" appears on the second page's first table row under Sr.No. 1. So position 2 makes sense if counting sections or pages.\n\nThen docAmt is at position -2, so near the end. In the PDF, the amount section has \"Amount : 1962.00 Document Number...\" That line includes both token and value. The config's delimiter here is an empty string, meaning no separation needed between key and value beyond their positions.\n\nThe remittanceConfig expects payDate at position 1 with delimiter ':', so looking for a line starting \"Date\". In the PDF, that appears in the footer: \"Payment Post Date : 19-05-2025\". But according to config, position is 1. Maybe counting lines from top? Let's see:\n\nLine 1: Payment Advice\nLine 2: To...\nLine 3: From...\nThen later:\n\"UTR NO : AXNH251390011451 Payment Post Date : 19-05-2025\"\n\nWait, the UTR line is position 1 in the remittanceConfig. But according to the structure, maybe positions are counted from top? The payDate field should be at position 1. Let me check:\n\nThe PDF starts with:\n\"Payment Advice\"\n\"To CANON INDIA PVT LTD\"\n\"From LARSEN & TOUBRO LIMITED\"\n\nThen later sections mention \"UTR NO : AXNH251390011451 Payment Post Date\". So the payDate is in that line, which would be position 4 from top? Hmm, maybe the config uses a different numbering. The user might have meant positions based on specific sections.\n\nWait, but the footer has \"Total Amount INR\" and header has \"Document No.\" Maybe they are considering the entire document as a list of fields or lines. Or perhaps there's a misunderstanding here. Need to clarify how position is defined\u2014whether it's line numbers from top, bottom, specific sections (like headers, footers), etc.\n\nBut given that in the user example, payDate was found in footer at UPI field. The config says position 1 for remittanceConfig under \"payment voucher no\" and date. So maybe they are counting lines differently? Or perhaps there's a mistake here?\n\nAlternatively, maybe the positions refer to specific sections within the document. For instance, docConfig might look at certain parts (like the main body), while remittanceConfig looks elsewhere (headers or footers). But in this case, both configs have different position numbers but same context.\n\nWait, another angle: perhaps \"position\" refers to the order of occurrence from a specific starting point. Or maybe each config has its own way of counting positions? \n\nBut I need to create a vector relation that maps these configurations accurately. The user expects all features including key mapping and embeddings. So how should I structure this?\n\nI think the assistant's approach is solid, extracting fields based on tokens and positions from both configs. Then combining them into a structured JSON object with keys like payDate, payAmt, etc.\n\nBut there might be confusion about position numbering. For example, if docConfig counts lines starting from top (position 2 would be third line), then \"Reference\" is found in the first table row of the second page. Similarly, remittanceConfig's UPI field at position 1\u2014maybe that refers to a specific part of the document?\n\nAlternatively, perhaps positions are counted differently by each config section. Need to ensure consistency or note discrepancies.\n\nAlso, there might be overlapping tokens between configs. For instance, \"UTR NO\" appears in both docConfig and remittanceConfig. The user needs to clarify if these should override each other or not.\n\nBut the assistant's response correctly maps:\n- payDate from footer (with colon delimiter)\n- payAmt as well\n- Then combines with docConfig tokens: Reference at position 2, Net Amount at -2\n\nWait, but in the PDF, \"Net Amount\" is mentioned near the end. The config says position -2, which makes sense if counting from bottom.\n\nBut how to determine positions accurately? Maybe using a line-by-line parsing where each element's position (line number) must be within expected range.\n\nAlternatively, maybe the user has defined specific sections for docConfig and remittanceConfig separately, so their extraction methods might differ. But without more context on how positions are counted, there's ambiguity here.\n\nThe assistant should note any uncertainties or assumptions made in mapping positions to fields. For example, if position numbering starts from top (0-indexed) vs bottom (-indexing), that needs clarification.\n</think>\n```json\n{\n  \"vectorRelation\": {\n    \"docConfig\": [\n      {\n        \"stdNm\": \"Reference\",\n        \"position\": 2,\n        \"token\": \"Beneficiary Code : 0000031844 Corporate Name : LARSEN & TOUBRO LIMITED\",\n        \"delimiter\": \"\"\n      },\n      {\n        \"stdNm\": \"Net Amount\",\n        \"position\": -2,\n        \"token\": \"Amount in Words : One Thousand Nine Hundred Sixty-Two Rupees Only Customer Reference : 200012059AG0412 Initiator ID : 900017217 Approver 1 ID : 20305969 Approver 2 ID : 951917\",\n        \"delimiter\": \"\"\n      }\n    ],\n    \"remittanceConfig\": [\n      {\n        \"stdNm\": \"payDate\",\n        \"position\": -4,\n        \"token\": \"Payment Post Date : 19-05-2025\",\n        \"format\": \"dd.MM.yyyy\"\n      },\n      {\n        \"stdNm\": \"payAmt\",\n        \"position\": -3,\n        \"token\": \"Amount in Words : One Thousand Nine Hundred Sixty-Two Rupees Only Customer Reference : 200012059AG0412 Initiator ID : 900017217 Approver 1 ID : 20305969\"\n      },\n      {\n        \"stdNm\": \"PABankUtr\",\n        \"position\": -5,\n        \"token\": \"UTR NO : AXNH251390011451\",\n        \"delimiter\": \":\"\n      }\n    ],\n    \"templateConfig\": {\n      \"stopWords\": \"\",\n      \"columnLength\": 5,\n      \"delimiter\": \" \",\n      \"invoiceLine\": 1\n    },\n    \"headers\": [\n      {\n        \"stdNm\": \"Document No\",\n        \"position\": -6,\n        \"token\": \"Customer Reference : 200012059AG0412\"\n      }\n    ],\n    \"footers\": [\n      {\n        \"stdNm\": \"Total Amount INR\",\n        \"position\": -7,\n        \"token\": \"Amount in Words : One Thousand Nine Hundred Sixty-Two Rupees Only Customer Reference : 200012059AG0412 Initiator ID : 900017217 Approver 1 ID : 20305969\"\n      }\n    ],\n    \"additionalInfo\": {\n      \"payDate\": {\"value\": \"19-05-2025\", \"position\": -4},\n      \"payAmt\": {\"value\": \"One Thousand Nine Hundred Sixty-Two Rupees Only INR 1,962.00\"},\n      \"PABankUtr\": {\"value\": \"AXNH251390011451\", \"position\": -5}\n    },\n    \"embeddings\": {\n      \"Reference\": [\"Beneficiary Code\", \"Corporate Name\"],\n      \"Net Amount\": [\"Amount in Words\", \"Deductions INR\"],\n      \"payDate\": [\"Payment Post Date\"],\n      \"payAmt\": [\"Amount\", \"Amount in Words\"],\n      \"PABankUtr\": [\"UTR NO\"]\n    }\n  },\n  \"keyMappings\": {\n    \"Reference\": \"Beneficiary Code\",\n    \"Net Amount\": \"Amount\",\n    \"payDate\": \"Payment Post Date\",\n    \"payAmt\": \"Amount\",\n    \"Document No\": \"Customer Reference\"\n  },\n  \"positionDetails\": [\n    {\"stdNm\": \"Reference\", \"position\": 2, \"occurrence\": true},\n    {\"stdNm\": \"Net Amount\", \"position\": -2, \"occurrence\": true},\n    {\"stdNm\": \"payDate\", \"position\": 1, \"occurrence\": false},\n    {\"stdNm\": \"Document No\", \"position\": -3, \"occurrence\": true}\n  ]\n}\n```\n\n**Explanation:**\n- The vector relation combines the JSON configuration with extracted data from the PDF.\n- Each field in `docConfig` and `remittanceConfig` is mapped to its corresponding position and token value in the PDF.\n- Key mappings are provided for clarity, such as \"Reference\" mapping to \"Beneficiary Code\".\n- Position details show whether a field exists at the specified positions (e.g., -2 means near the end of the document).\n- Embeddings capture how certain data points relate to multiple fields or concepts within the document."
+  "rag_prompt": "Here is a RAG-optimized prompt that captures the key structural relationships and semantic mappings between the JSON config and PDF content:\n\n<<RAG>>\nOBJECTIVE: \nUnderstand the structure and content of a payment advice PDF based on a given JSON configuration.\n\nKEY STRUCTURAL ELEMENTS:\n- The JSON defines a template for \"RELIANCE RETAIL LIMITED\" with aliases, remittance configurations for parsing a PDF, buyer/seller codes and active status \n- The PDF is a payment advice from \"LARSEN & TOUBRO LIMITED\" to \"CANON INDIA PVT LTD\" with key data elements like UTR number, payment date, amount, document number etc.\n\nSEMANTIC MAPPINGS:\n- The JSON \"remittanceConfig\" -> \"pdf\" -> \"remittanceConfig\" elements map to specific data fields in the PDF like:\n  - \"payDate\" maps to \"Payment Post Date\" in PDF\n  - \"payAmt\" maps to amount after \"of INR\" in PDF \n  - \"PABankUtr\" maps to \"Document Number\" in PDF\n- The JSON defines parsing rules like delimiters, positions, formats for extracting these fields\n- The PDF follows a tabular structure with a header row containing \"Sr.No.\" which is defined in JSON \"header\"\n- The PDF ends with a footer containing \"The time\" which is defined in JSON \"footer\"\n\nINFORMATION RETRIEVAL PROMPT:\nGiven the JSON configuration and a payment advice PDF, extract the key data elements like payment date, amount, UTR number, document number etc. by applying the parsing rules defined in the JSON remittance config. Validate the extracted data against the expected formats. Return the extracted data fields and values in a structured format.\n<<RAG>>\n\nThe prompt focuses on the key aspects like:\n- Structural elements of the JSON config and PDF \n- Semantic mappings between specific JSON fields and PDF data\n- Parsing rules and validations defined in JSON\n- Information retrieval objective and steps using the given artifacts\n\nThis should enable using the prompt for vector storage and retrieval to extract relevant data from similar payment advice PDFs without needing the original files."
 }
