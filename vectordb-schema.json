@@ -16,11 +16,6 @@
             "description": "The vector representation of the data"
         },
         {
-            "name": "metadata",
-            "type": "object",
-            "description": "Additional metadata associated with the vector"
-        },
-        {
             "name": "created_at",
             "type": "string",
             "format": "date-time",
