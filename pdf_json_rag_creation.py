@@ -14,6 +14,10 @@ import weaviate.classes as wvc
 from weaviate.classes.init import AdditionalConfig, Timeout
 from uuid import uuid4
 import os
+import pdf2image
+import numpy as np
+from PIL import Image
+import io
 
 # Load environment variables
 load_dotenv()
@@ -96,12 +100,6 @@ class PDFJSONProcessor:
                     ),
                     properties=[
                         wvc.config.Property(
-                            name="pdf_embedding_vector",
-                            data_type=wvc.config.DataType.NUMBER_ARRAY,  # Changed from 'object' to 'OBJECT' [1]
-                            description="the vector representation of the data",
-                            index_filterable=True,  # Changed from 'indexFilterable' to 'index_filterable' [2]
-                        ),
-                        wvc.config.Property(
                             name="json_config",
                             data_type=wvc.config.DataType.TEXT,  # Changed from 'object' to 'OBJECT' [1]
                             description="Json configuration of the vector",
@@ -170,12 +168,6 @@ class PDFJSONProcessor:
                     ),
                     properties=[
                         wvc.config.Property(
-                            name="pdf_embedding_vector",
-                            data_type=wvc.config.DataType.NUMBER_ARRAY,  # Changed from 'object' to 'OBJECT' [1]
-                            description="the vector representation of the data",
-                            index_filterable=True,  # Changed from 'indexFilterable' to 'index_filterable' [2]
-                        ),
-                        wvc.config.Property(
                             name="json_config",
                             data_type=wvc.config.DataType.TEXT,  # Changed from 'object' to 'OBJECT' [1]
                             description="Json configuration of the vector",
@@ -228,7 +220,6 @@ class PDFJSONProcessor:
 
             # Prepare the data object
             vector_obj = {
-                "pdf_embedding_vector": pdf_embedding,
                 "json_config": str(output["json_config"]),
                 "created_at": datetime.now(timezone.utc),
                 "updated_at": datetime.now(timezone.utc),
@@ -260,14 +251,45 @@ class PDFJSONProcessor:
         # Create output directory if it doesn't exist
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        # Load documents
-        pdf_text = self.load_pdf(pdf_path)
+        # Load JSON config
         json_config = self.load_json(json_path)
 
-        # Create embeddings for PDF
-        pdf_embedding = self.embeddings.embed_query(pdf_text)
+        # Convert PDF to images
+        try:
+            # Convert PDF to images (returns list of PIL Image objects)
+            images = pdf2image.convert_from_path(pdf_path)
+            
+            # Combine all images into one
+            if len(images) > 1:
+                # Create a new image with combined height
+                total_height = sum(img.height for img in images)
+                max_width = max(img.width for img in images)
+                combined_image = Image.new('RGB', (max_width, total_height))
+                
+                # Paste all images
+                y_offset = 0
+                for img in images:
+                    combined_image.paste(img, (0, y_offset))
+                    y_offset += img.height
+            else:
+                combined_image = images[0]
 
-        # Create vector relation
+            # Convert image to bytes
+            img_byte_arr = io.BytesIO()
+            combined_image.save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+
+            # Create embeddings for the image
+            pdf_embedding = self.embeddings.embed_query(str(img_byte_arr))
+
+        except Exception as e:
+            print(f"Error converting PDF to image: {e}")
+            # Fallback to text extraction if image conversion fails
+            pdf_text = self.load_pdf(pdf_path)
+            pdf_embedding = self.embeddings.embed_query(pdf_text)
+
+        # Create vector relation using the PDF text for RAG prompt
+        pdf_text = self.load_pdf(pdf_path)
         rag_prompt = self.rag_prompt_genration(pdf_text, json_config)
 
         # Save results
