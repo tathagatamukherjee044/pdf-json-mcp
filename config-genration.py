@@ -51,6 +51,8 @@ class PDFSimilarityProcessor:
             return_properties=["rag_prompt", "json_config", "source"],
         )
 
+        print(str(response))
+
         if response.objects:
             return response.objects[0].properties
         return None

@@ -31,7 +31,6 @@ class PDFJSONProcessor:
 
         weaviate_url = os.getenv("WEAVIATE_URL")
         weaviate_api_key = os.getenv("WEAVIATE_API_KEY")
-        weaviate_grpc_key = os.getenv("WEAVIATE_GRPC_KEY")
         self.rag_collection_name = os.getenv("RAG_COLLECTION_NAME", "rag_prompt_db")
 
         self.client = weaviate.connect_to_weaviate_cloud(
