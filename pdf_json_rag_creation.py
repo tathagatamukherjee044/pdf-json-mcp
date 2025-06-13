@@ -103,6 +103,12 @@ class PDFJSONProcessor:
                             index_filterable=True,  # Changed from 'indexFilterable' to 'index_filterable' [2]
                         ),
                         wvc.config.Property(
+                            name="json_config",
+                            data_type=wvc.config.DataType.TEXT,  # Changed from 'object' to 'OBJECT' [1]
+                            description="Json configuration of the vector",
+                            index_filterable=True,  # Changed from 'indexFilterable' to 'index_filterable' [2]
+                        ),
+                        wvc.config.Property(
                             name="created_at",
                             data_type=wvc.config.DataType.DATE,  # Changed from 'date' to 'DATE' [1]
                             description="Timestamp when the vector was created",
@@ -145,9 +151,14 @@ class PDFJSONProcessor:
             print(f"Collection {self.rag_collection_name} already exists")
         """Create Weaviate schema if it doesn't exist"""
         # Check if collection exists
-        if not self.client.collections.exists(self.rag_collection_name):
-            try:
-                # Create collection with schema
+
+    def save_to_weaviate(self, output: Dict[str, Any]) -> str:
+        """Save processed output to Weaviate"""
+        try:
+            # Get or create collection
+
+            # Check if collection exists, if not create it
+            if not self.client.collections.exists(self.rag_collection_name):
                 collection = self.client.collections.create(
                     name=self.rag_collection_name,
                     description="Schema for a vector database",
@@ -163,6 +174,13 @@ class PDFJSONProcessor:
                             name="pdf_embedding_vector",
                             data_type=wvc.config.DataType.NUMBER_ARRAY,  # Changed from 'object' to 'OBJECT' [1]
                             description="the vector representation of the data",
+                            index_filterable=True,  # Changed from 'indexFilterable' to 'index_filterable' [2]
+                        ),
+                        wvc.config.Property(
+                            name="json_config",
+                            data_type=wvc.config.DataType.TEXT,  # Changed from 'object' to 'OBJECT' [1]
+                            description="Json configuration of the vector",
+                            index_filterable=True,  # Changed from 'indexFilterable' to 'index_filterable' [2]
                         ),
                         wvc.config.Property(
                             name="created_at",
@@ -199,78 +217,6 @@ class PDFJSONProcessor:
                         ),
                     ],
                 )
-                print(f"Created collection: {self.rag_collection_name}")
-            except Exception as e:
-                print(f"Error creating collection: {e}")
-                raise
-        else:
-            print(f"Collection {self.rag_collection_name} already exists")
-
-    def save_to_weaviate(self, output: Dict[str, Any]) -> str:
-        """Save processed output to Weaviate"""
-        try:
-            # Get or create collection
-
-            # Check if collection exists, if not create it
-            if not self.client.collections.exists(self.rag_collection_name):
-                collection = self.client.collections.create(
-                    name=self.rag_collection_name,
-                    description="Schema for a vector database",
-                    generative_config=wvc.config.Configure.Generative.anthropic(),
-                    vectorizer_config=wvc.config.Configure.Vectorizer.text2vec_cohere(
-                        model="embed-multilingual-v2.0", vectorize_collection_name=True
-                    ),
-                    vector_index_config=wvc.config.Configure.VectorIndex.hnsw(
-                        distance_metric=wvc.config.VectorDistances.COSINE
-                    ),
-                    properties=[
-                        {
-                            "name": "pdf_embedding_vector",
-                            "dataType": "number[]",
-                            "description": "The vector representation of the data",
-                        },
-                        {
-                            "name": "metadata",
-                            "dataType": "object",
-                            "description": "Additional metadata associated with the vector",
-                        },
-                        {
-                            "name": "created_at",
-                            "dataType": "date",
-                            "description": "Timestamp when the vector was created",
-                            "indexFilterable": True,
-                            "indexSearchable": True,
-                        },
-                        {
-                            "name": "updated_at",
-                            "dataType": "date",
-                            "description": "Timestamp when the vector was last updated",
-                            "indexFilterable": True,
-                            "indexSearchable": True,
-                        },
-                        {
-                            "name": "source",
-                            "dataType": "string",
-                            "description": "Source of the vector data",
-                            "indexFilterable": True,
-                            "indexSearchable": True,
-                        },
-                        {
-                            "name": "tags",
-                            "dataType": "string[]",
-                            "description": "Tags for categorization",
-                            "indexFilterable": True,
-                            "indexSearchable": True,
-                        },
-                        {
-                            "name": "rag_prompt",
-                            "dataType": "text",
-                            "description": "RAG prompt for querying the vector database",
-                            "indexFilterable": True,
-                            "indexSearchable": True,
-                        },
-                    ],
-                )
             else:
                 collection = self.client.collections.get(self.rag_collection_name)
 
@@ -284,11 +230,7 @@ class PDFJSONProcessor:
             # Prepare the data object
             vector_obj = {
                 "pdf_embedding_vector": pdf_embedding,
-                "metadata": {
-                    "pdf_path": output["pdf_path"],
-                    "json_path": output["json_path"],
-                    "json_config": output["json_config"],
-                },
+                "json_config": str(output["json_config"]),
                 "created_at": datetime.now(timezone.utc),
                 "updated_at": datetime.now(timezone.utc),
                 "source": f"pdf:{output['pdf_path']}",
