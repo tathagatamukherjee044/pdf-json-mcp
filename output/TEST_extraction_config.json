@@ -1,7 +1,52 @@
 {
-  "pdf_path": "data/TEST.pdf",
-  "similar_document_source": "pdf:data/2.pdf",
-  "example_rag_prompt": "Here is a RAG-optimized prompt for vector storage and retrieval based on the key structural relationships and semantic mappings between the PDF and JSON:\n\n<<RAG>>\n\nObjective: Extract key remittance details from a payment advice PDF using a JSON configuration.\n\nKey Mappings:\n- \"buyerNm\" in JSON maps to \"From\" field in PDF \n- \"templateNm\" in JSON identifies the PDF template as \"ALGORIQ_PDF\"\n- \"remittanceConfig\" in JSON specifies extraction rules for:\n  - \"payDate\" using \"Payment Post Date\" as token \n  - \"payAmt\" using \"of INR\" as token\n  - \"PABankUtr\" using \"Document Number\" as token\n- \"header\" and \"footer\" in JSON identify start and end of line item table\n- Line item table has \"Sr.No.\", \"Voucher No\", \"Your Bill no\", \"Bill Date\", \"Purchase Order no\", \"Deductions\", \"INR Amount\" columns\n- \"docConfig\" in JSON maps \"docId\" to 4th space-delimited token and \"docAmt\" to last space-delimited token in PDF\n\nInstructions:\n1. Load the JSON configuration \n2. Identify the PDF template using \"templateNm\"\n3. Extract \"payDate\", \"payAmt\", \"PABankUtr\" values using specified tokens and delimiters in \"remittanceConfig\"\n4. Locate the line item table between \"header\" and \"footer\" text \n5. Parse the line item table using specified \"columnLength\" and \"delimiter\"\n6. Extract \"docId\" and \"docAmt\" values using positions specified in \"docConfig\"\n7. Return the extracted values in a structured format mapping to the \"stdNm\" names in the JSON\n\n<<RAG>>\n\nThe prompt focuses on the key structural elements like headers, footers, and table parsing instructions, along with the semantic mappings between standardized names in JSON and their corresponding locations and extraction rules from the PDF. This should enable retrieving the relevant remittance data from the PDF based solely on the JSON configuration, without needing the original files.",
-  "example_json_config": "{'template': {'buyerNm': 'RELIANCE RETAIL LIMITED', 'alias': ['reliance retail ltd', 'RELIANCE RETAIL LIMITED 712', 'reliance retail limited'], 'remittanceConfig': {'pdf': [{'templateNm': 'ALGORIQ_PDF', 'docConfig': [{'delimiter': ' ', 'stdNm': 'docId', 'position': 4}, {'delimiter': ' ', 'stdNm': 'docAmt', 'position': -1}], 'templateConfig': {'stopWords': '', 'columnLength': 6, 'delimiter': ' ', 'invoiceLine': 1}, 'footer': ['The time'], 'header': ['Sr.No.'], 'remittanceConfig': [{'delimiter': ':', 'format': 'dd-MM-yyyy', 'stdNm': 'payDate', 'position': 1, 'token': 'Payment Post Date'}, {'delimiter': ' ', 'stdNm': 'payAmt', 'position': 1, 'token': 'of INR'}, {'delimiter': ':', 'stdNm': 'PABankUtr', 'position': 1, 'token': 'Document Number'}]}]}, 'buyerCode': [''], 'sellerCode': 'Grupobimbo', 'active': True}, 'client': 'Grupobimbo'}",
-  "generated_extraction_config": "{\n  \"template\": {\n    \"buyerNm\": \"LARSEN & TOUBRO LIMITED\",\n    \"alias\": [\n      \"LARSEN & TOUBRO LIMITED NORTH BLOCK II, 3RD FLR, SAKI VIHAR ROAD, POWAI WORKS, GATE NO 1 MUMBAI MAHARASHTRA 400072\"\n    ],\n    \"remittanceConfig\": {\n      \"pdf\": [\n        {\n          \"templateNm\": \"ALGORIQ_PDF\",\n          \"docConfig\": [\n            {\n              \"delimiter\": \" \",\n              \"stdNm\": \"docId\",\n              \"position\": 4\n            },\n            {\n              \"delimiter\": \" \",\n              \"stdNm\": \"docAmt\",\n              \"position\": -1\n            }\n          ],\n          \"templateConfig\": {\n            \"stopWords\": \"\",\n            \"columnLength\": 7,\n            \"delimiter\": \" \",\n            \"invoiceLine\": 1\n          },\n          \"footer\": [\n            \"* The time\"\n          ],\n          \"header\": [\n            \"Sr.No.\"\n          ],\n          \"remittanceConfig\": [\n            {\n              \"delimiter\": \":\",\n              \"format\": \"dd-MM-yyyy\",\n              \"stdNm\": \"payDate\",\n              \"position\": 1,\n              \"token\": \"Payment Post Date\"\n            },\n            {\n              \"delimiter\": \" \",\n              \"stdNm\": \"payAmt\",\n              \"position\": 1,\n              \"token\": \"of INR\"\n            },\n            {\n              \"delimiter\": \":\",\n              \"stdNm\": \"PABankUtr\",\n              \"position\": 1,\n              \"token\": \"UTR NO\"\n            }\n          ]\n        }\n      ]\n    }\n  },\n  \"buyerCode\": [\n    \"\"\n  ],\n  \"sellerCode\": \"CanonIndia\",\n  \"active\": true\n}"
+  "templateNm": "CANON_PDF",
+  "docConfig": [
+    {
+      "delimiter": " ",
+      "stdNm": "docId",
+      "position": 1,
+      "token": null
+    },
+    {
+      "delimiter": " ",
+      "stdNm": "docAmt",
+      "position": -1,
+      "token": null
+    }
+  ],
+  "templateConfig": {
+    "stopWords": "",
+    "columnLength": 7,
+    "delimiter": " ",
+    "invoiceLine": 1
+  },
+  "footer": [
+    "*"
+  ],
+  "header": [
+    "Sr.No."
+  ],
+  "remittanceConfig": [
+    {
+      "delimiter": ":",
+      "format": "dd-MM-yyyy",
+      "stdNm": "payDate",
+      "position": 1,
+      "token": "Payment Post Date"
+    },
+    {
+      "delimiter": " ",
+      "format": null,
+      "stdNm": "payAmt",
+      "position": 1,
+      "token": "of INR"
+    },
+    {
+      "delimiter": ":",
+      "format": null,
+      "stdNm": "PABankUtr",
+      "position": 1,
+      "token": "UTR NO"
+    }
+  ]
 }
