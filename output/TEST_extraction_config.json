@@ -1,5 +1,5 @@
 {
-  "templateNm": "CANON_PDF",
+  "templateNm": "LARSEN_TOUBRO_PDF",
   "docConfig": [
     {
       "delimiter": " ",
@@ -21,7 +21,7 @@
     "invoiceLine": 1
   },
   "footer": [
-    "*"
+    "The time"
   ],
   "header": [
     "Sr.No."

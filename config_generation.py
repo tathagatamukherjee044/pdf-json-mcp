@@ -63,7 +63,7 @@ class PDFSimilarityProcessor:
 
     def generate_extraction_config(
         self, pdf_text: str, similar_doc: Dict[str, Any]
-    ) -> str:
+    ) -> ExtractionConfig:
         """Generate extraction configuration using LLM with structured output"""
         # Initialize instructor client
         client = instructor.from_anthropic(
@@ -91,12 +91,10 @@ class PDFSimilarityProcessor:
             temperature=0.7
         )
 
-        # print(response)
-
-        # Convert to JSON string
+        # Return the response directly (it's already the Pydantic model)
         return response
 
-    def process_pdf(self, pdf_path: str, output_dir: str) -> None:
+    def process_pdf(self, pdf_path: str, output_dir: str) -> Dict[str, Any]:
         """Process PDF and generate extraction configuration"""
         try:
             # Create output directory
@@ -114,13 +112,16 @@ class PDFSimilarityProcessor:
             new_config = self.generate_extraction_config(pdf_text, similar_doc)
             print(new_config)
 
-            # Save results
+            # Convert to dictionary
+            config_dict = new_config.model_dump()
+
+            # Save results to file (optional, for debugging)
             output = {
                 # "pdf_path": pdf_path,
                 # "similar_document_source": similar_doc["source"],
                 # "example_rag_prompt": similar_doc["rag_prompt"],
                 # "example_json_config": similar_doc["json_config"],
-                "new_config": new_config.model_dump(),  # Convert Pydantic model to dict
+                "new_config": config_dict,
             }
 
             # Save to file
@@ -128,9 +129,40 @@ class PDFSimilarityProcessor:
             output_path = Path(output_dir) / f"{base_name}_extraction_config.json"
 
             with open(output_path, "w") as f:
-                json.dump(new_config.model_dump(), f, indent=2)
+                json.dump(config_dict, f, indent=2)
 
             print(f"Processing complete. Results saved to: {output_path}")
+            
+            # Return the config dictionary
+            return config_dict
+
+        except Exception as e:
+            print(f"Error processing PDF: {e}")
+            raise
+        finally:
+            self.client.close()
+
+    def process_pdf_and_return_config(self, pdf_path: str) -> Dict[str, Any]:
+        """Process PDF and return only the extraction configuration without saving to file"""
+        try:
+            # Load and embed PDF
+            pdf_text, pdf_embedding = self.load_and_embed_pdf(pdf_path)
+
+            # Find similar document
+            similar_doc = self.find_similar_document(pdf_embedding)
+            if not similar_doc:
+                raise ValueError("No similar documents found in the database")
+
+            # Generate new configuration
+            new_config = self.generate_extraction_config(pdf_text, similar_doc)
+            
+            # Convert to dictionary and add debugging
+            config_dict = new_config.model_dump()
+            print(f"Generated config type: {type(config_dict)}")
+            print(f"Config keys: {list(config_dict.keys()) if isinstance(config_dict, dict) else 'Not a dict'}")
+            
+            # Return the config dictionary
+            return config_dict
 
         except Exception as e:
             print(f"Error processing PDF: {e}")

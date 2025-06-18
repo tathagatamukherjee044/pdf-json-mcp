@@ -3,6 +3,8 @@ from fastapi.responses import JSONResponse
 import shutil
 from pathlib import Path
 import os
+from pydantic import BaseModel
+from typing import Dict, Any
 from config_generation import PDFSimilarityProcessor
 
 app = FastAPI()
@@ -11,37 +13,41 @@ app = FastAPI()
 os.makedirs("data", exist_ok=True)
 os.makedirs("output", exist_ok=True)
 
-@app.post("/process-pdf")
+class ProcessPDFResponse(BaseModel):
+    message: str
+    config: Dict[str, Any]
+
+@app.post("/process-pdf", response_model=ProcessPDFResponse)
 async def process_pdf(file: UploadFile):
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
     
+    temp_file_path = None
     try:
         # Save the uploaded file temporarily
         temp_file_path = Path("data") / file.filename
         with temp_file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # Process the PDF
+        # Process the PDF and get the config
         processor = PDFSimilarityProcessor()
-        processor.process_pdf(str(temp_file_path), "output")
-        
-        # Get the output file path
-        output_file = Path("output") / f"{temp_file_path.stem}_extraction_config.json"
+        config_data = processor.process_pdf_and_return_config(str(temp_file_path))
         
         # Clean up the temporary file
-        temp_file_path.unlink()
+        if temp_file_path and temp_file_path.exists():
+            temp_file_path.unlink()
         
-        return JSONResponse(
-            content={"message": "PDF processed successfully", "output_file": str(output_file)},
-            status_code=200
+        return ProcessPDFResponse(
+            message="PDF processed successfully",
+            config=config_data
         )
         
     except Exception as e:
         # Clean up in case of error
-        if temp_file_path.exists():
+        if temp_file_path and temp_file_path.exists():
             temp_file_path.unlink()
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error processing PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
