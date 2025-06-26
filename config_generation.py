@@ -72,15 +72,16 @@ class PDFSimilarityProcessor:
         )
 
         # Create the prompt
-        prompt = f"""Based on the example PDF, RAG prompt, and JSON configuration, create a new extraction configuration
-        that can be used to extract similar information from the new PDF.
-        Focus on maintaining the same structure while adapting to any specific differences.
+        prompt = f"""You are an expert at analyzing documents and creating extraction configurations.
+            Based on the example PDF, RAG prompt, and JSON configuration, create a new extraction configuration
+            that can be used to extract similar information from the new PDF.
+            Focus on maintaining the same structure while adapting to any specific differences.
 
         Example RAG Prompt: {similar_doc['rag_prompt']}
         Example JSON Config: {similar_doc['json_config']}
         New PDF Content: {pdf_text[:4000]}
         
-        Create a new extraction configuration that follows the same pattern but is adapted for the new PDF."""
+            Create a new extraction configuration that follows the same pattern but is adapted for the new PDF. And retunn the configuration as a JSON string. Dont return any other text.""",
 
         # Get structured response
         response = client.chat.completions.create(
@@ -88,7 +89,7 @@ class PDFSimilarityProcessor:
             messages=[{"role": "user", "content": prompt}],
             response_model=ExtractionConfig,
             max_tokens=4096,
-            temperature=0.7
+            temperature=0.3
         )
 
         # Return the response directly (it's already the Pydantic model)
